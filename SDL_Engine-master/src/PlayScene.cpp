@@ -17,14 +17,31 @@ PlayScene::PlayScene()
 PlayScene::~PlayScene()
 = default;
 
+glm::vec2 AngleLengthToVector(float angle, float magnitude)
+{
+	return glm::vec2(cos(angle * Util::Deg2Rad) * magnitude, sin(angle * Util::Deg2Rad) * magnitude);
+}
+
 void PlayScene::Draw()
 {
 	DrawDisplayList();
-	SDL_SetRenderDrawColor(Renderer::Instance().GetRenderer(), 255, 255, 255, 255);
+
+	glm::vec2 velocityVectorEndPoint = m_launchOrigin + AngleLengthToVector(m_angle, m_speed); //  glm::vec2(cos(m_angle * Util::Deg2Rad) * m_speed, sin(m_angle) * m_speed);
+
+
+	SDL_SetRenderDrawColor(Renderer::Instance().GetRenderer(), 255, 255, 125, 255);
+	SDL_RenderDrawLineF(Renderer::Instance().GetRenderer(), m_launchOrigin.x, m_launchOrigin.y, 100, 100);
+
+
+	SDL_SetRenderDrawColor(Renderer::Instance().GetRenderer(), 255, 255, 225, 255);
 }
 
 void PlayScene::Update()
 {
+
+	y1 = c + sin(t * a) * b;
+	x1 = d + cos(t * a) * b;
+	(*m_pPlaneSprite).GetTransform()->position = glm::vec2(x1, y1);
 	UpdateDisplayList();
 }
 
@@ -43,126 +60,6 @@ void PlayScene::HandleEvents()
 	GetKeyboardInput();
 }
 
-void PlayScene::GetPlayerInput()
-{
-	switch (m_pCurrentInputType)
-	{
-	case static_cast<int>(InputType::GAME_CONTROLLER):
-	{
-		// handle player movement with GameController
-		if (SDL_NumJoysticks() > 0)
-		{
-			if (EventManager::Instance().GetGameController(0) != nullptr)
-			{
-				constexpr auto dead_zone = 10000;
-				if (EventManager::Instance().GetGameController(0)->STICK_LEFT_HORIZONTAL > dead_zone)
-				{
-					m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_RUN_RIGHT);
-					m_playerFacingRight = true;
-				}
-				else if (EventManager::Instance().GetGameController(0)->STICK_LEFT_HORIZONTAL < -dead_zone)
-				{
-					m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_RUN_LEFT);
-					m_playerFacingRight = false;
-				}
-				else
-				{
-					if (m_playerFacingRight)
-					{
-						m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_IDLE_RIGHT);
-					}
-					else
-					{
-						m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_IDLE_LEFT);
-					}
-				}
-			}
-		}
-	}
-	break;
-	case static_cast<int>(InputType::KEYBOARD_MOUSE):
-	{
-		// handle player movement with mouse and keyboard
-		if (EventManager::Instance().IsKeyDown(SDL_SCANCODE_A))
-		{
-			m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_RUN_LEFT);
-			m_playerFacingRight = false;
-		}
-		else if (EventManager::Instance().IsKeyDown(SDL_SCANCODE_D))
-		{
-			m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_RUN_RIGHT);
-			m_playerFacingRight = true;
-		}
-		else
-		{
-			if (m_playerFacingRight)
-			{
-				m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_IDLE_RIGHT);
-			}
-			else
-			{
-				m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_IDLE_LEFT);
-			}
-		}
-	}
-	break;
-	case static_cast<int>(InputType::ALL):
-	{
-		if (SDL_NumJoysticks() > 0)
-		{
-			if (EventManager::Instance().GetGameController(0) != nullptr)
-			{
-				constexpr auto dead_zone = 10000;
-				if (EventManager::Instance().GetGameController(0)->STICK_LEFT_HORIZONTAL > dead_zone
-					|| EventManager::Instance().IsKeyDown(SDL_SCANCODE_D))
-				{
-					m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_RUN_RIGHT);
-					m_playerFacingRight = true;
-				}
-				else if (EventManager::Instance().GetGameController(0)->STICK_LEFT_HORIZONTAL < -dead_zone
-					|| EventManager::Instance().IsKeyDown(SDL_SCANCODE_A))
-				{
-					m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_RUN_LEFT);
-					m_playerFacingRight = false;
-				}
-				else
-				{
-					if (m_playerFacingRight)
-					{
-						m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_IDLE_RIGHT);
-					}
-					else
-					{
-						m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_IDLE_LEFT);
-					}
-				}
-			}
-		}
-		else if (EventManager::Instance().IsKeyDown(SDL_SCANCODE_A))
-		{
-			m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_RUN_LEFT);
-			m_playerFacingRight = false;
-		}
-		else if (EventManager::Instance().IsKeyDown(SDL_SCANCODE_D))
-		{
-			m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_RUN_RIGHT);
-			m_playerFacingRight = true;
-		}
-		else
-		{
-			if (m_playerFacingRight)
-			{
-				m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_IDLE_RIGHT);
-			}
-			else
-			{
-				m_pPlayer->SetAnimationState(PlayerAnimationState::PLAYER_IDLE_LEFT);
-			}
-		}
-	}
-	break;
-	}
-}
 
 void PlayScene::GetKeyboardInput()
 {
@@ -197,8 +94,7 @@ void PlayScene::Start()
 	// Player Sprite
 	m_pPlayer = new Player();
 	AddChild(m_pPlayer);
-	m_playerFacingRight = true;
-
+	
 	// Back Button
 	m_pBackButton = new Button("../Assets/textures/backButton.png", "backButton", GameObjectType::BACK_BUTTON);
 	m_pBackButton->GetTransform()->position = glm::vec2(300.0f, 400.0f);
@@ -274,14 +170,13 @@ void PlayScene::GUI_Function()
 
 	ImGui::Separator();
 
-	static float float3[3] = { 0.0f, 1.0f, 1.5f };
-	if(ImGui::SliderFloat3("My Slider", float3, 0.0f, 2.0f))
-	{
-		std::cout << float3[0] << std::endl;
-		std::cout << float3[1] << std::endl;
-		std::cout << float3[2] << std::endl;
-		std::cout << "---------------------------\n";
-	}
+	ImGui::SliderFloat("Launch Angle", &m_angle, 0.0f, 360.0f);
+	ImGui::SliderFloat("Launch Speed", &m_speed, 0.0f, 1000.0f);
+	ImGui::SliderFloat2("Launch Origin", &(m_launchOrigin.x), 0.0f, 800.0f);
+
+
+	glm::vec2 velocity = AngleLengthToVector(m_angle, m_speed);
+	ImGui::LabelText("Velocity Vector", "x:%f, y:%f", velocity.x, velocity.y);
 	
 	ImGui::End();
 }
